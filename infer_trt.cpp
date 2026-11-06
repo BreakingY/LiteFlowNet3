@@ -251,7 +251,7 @@ cv::Mat PostprocessFlowSingle(float* flow_ptr, int flow_h, int flow_w, int orig_
 }
 int PictureInfer(cudaStream_t &stream, std::vector<std::pair<int, std::string>> &in_tensor_info, std::vector<std::pair<int, std::string>> &out_tensor_info,
                 nvinfer1::IExecutionContext* context, void* buffers[3], float* output, int input_h, int input_w, std::string path){
-    int test_batch = 2;
+    int test_batch = 1;
     int buffer_idx = 0;
     char* input_ptr_one = static_cast<char*>(buffers[in_tensor_info[0].first]);
     char* input_ptr_two = static_cast<char*>(buffers[in_tensor_info[1].first]);
@@ -409,7 +409,7 @@ int main(int argc, char **argv){
     assert(out_tensor_info.size() == 1);
     
     // input1和input2尺寸一致
-    int batch_size = 4; // trtexex转模型设置的最大batch
+    int batch_size = 1; // trtexex转模型设置的最大batch
     nvinfer1::Dims in_dims = engine->getBindingDimensions(in_tensor_info[0].first); // input1和input2尺寸一致
     nvinfer1::Dims out_dims = engine->getBindingDimensions(out_tensor_info[0].first); // output
     size_t max_in_size_byte = CountElement(in_dims, batch_size) * sizeof(float); // batch_size * input_h * input_w * 3 * sizeof(float)
@@ -528,7 +528,7 @@ int main(int argc, char **argv){
     assert(out_tensor_info.size() == 1);
     
 
-    int batch_size = 4; // trtexex转模型设置的最大batch
+    int batch_size = 1; // trtexex转模型设置的最大batch
     nvinfer1::Dims in_dims = context->getTensorShape(in_tensor_info[0].second.c_str()); // input1和input2尺寸一致
     nvinfer1::Dims out_dims = context->getTensorShape(out_tensor_info[0].second.c_str()); // output
     size_t max_in_size_byte = CountElement(in_dims, batch_size) * sizeof(float); // batch_size * input_h * input_w * 3 * sizeof(float)

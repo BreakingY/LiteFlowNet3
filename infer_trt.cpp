@@ -88,7 +88,7 @@ void PreprocessImage_GPU(cv::Mat &img, void *buffer, int input_h, int input_w, c
 
     resize_GPU(orig_h, orig_w, img_buffer, buffer, input_h, input_w);
     
-    // pwc-net use BGR
+    // LiteFlowNet3 use BGR
     // BGR-->RGB
     // Npp8u *pu8_rgb = nullptr;
     // CUDA_CHECK(cudaMalloc(&pu8_rgb, input_h * input_w * 3));

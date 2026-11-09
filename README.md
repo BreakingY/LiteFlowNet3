@@ -2,7 +2,7 @@
 * 本项目基于`https://github.com/dkhonker/LiteFlowNet3`进行开发，新增功能为 ONNX 模型导出、TensorRT(适配10.4、8.5、8.4)、CANN推理加速。
 
 # 导出onnx
-* python run.py
+* python run.py --backend=<trt104/trt85/trt84/cann>
 * 注意: liteflownet3和pwc-net输入一样，为BGR
 
 # TensorRT
@@ -16,10 +16,10 @@
 
 2. 模型转换
 * TensorRT8.4
-    * python fix_trt84_onnx.py liteflownet3.onnx
-    * trtexec --onnx=liteflownet3_fixed.onnx --saveEngine=liteflownet3.engine --plugins=./plugin/build/libgrid_sample_plugin.so --fp16
+    * python fix_trt84_onnx.py liteflownet3_trt84.onnx
+    * trtexec --onnx=liteflownet3_trt84_fixed.onnx --saveEngine=liteflownet3.engine --plugins=./plugin/build/libgrid_sample_plugin.so --fp16 --noTF32
 * TensorRT8.5/TensorRT10.4
-    * trtexec --onnx=liteflownet3.onnx --saveEngine=liteflownet3.engine --fp16
+    * trtexec --onnx=<liteflownet3_trt85.onnx/liteflownet3_trt104.onnx> --saveEngine=liteflownet3.engine --fp16
 
 3. 推理
 * make -f Makefile_trt TRT_VERSION=<TRT_10;TRT_84_85> TRT_PATH=</PATH/TensorRT-10.4.0.26;PATH/TensorRT-8.5.1.7;PATH/TensorRT-8.4.1.5>
@@ -31,7 +31,7 @@
 * cann版本：8.2.RC1
 
 1. 模型转换
-* atc --model=./liteflownet3.onnx --framework=5 --input_shape="input1:1,3,384,768;input2:1,3,384,768 " --insert_op_conf=./insert_op.cfg --output=liteflownet3 --soc_version=Ascend310P3 --precision_mode_v2=mixed_float16
+* atc --model=./liteflownet3_cann.onnx --framework=5 --input_shape="input1:1,3,384,768;input2:1,3,384,768 " --insert_op_conf=./insert_op.cfg --output=liteflownet3 --soc_version=Ascend310P3 --precision_mode_v2=mixed_float16
 
 2. 推理
 * make -f Makefile_cann

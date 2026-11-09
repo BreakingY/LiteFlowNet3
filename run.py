@@ -14,7 +14,18 @@ import os
 import PIL
 import PIL.Image
 import sys
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    '--backend',
+    type=str,
+    default='trt104',
+    choices=['trt104', 'trt85', 'trt84', 'cann'],
+    help='backend'
+)
+args = parser.parse_args()
 
+args_backend = args.backend
 
 #############correlate 
 '''
@@ -57,62 +68,62 @@ def correlate(input1, input2, intLevel,signal=0):
 导出onnx 替换为标准torch算子
 '''
 import torch.nn.functional as F
-# v1
-# def correlate(input1, input2, intLevel, signal=0):
-#     if signal == 0:
-#         if intLevel == 4:
-#             patch_size = 7
-#             dilation_patch = 2
-#         elif intLevel == 3:
-#             patch_size = 9
-#             dilation_patch = 2
-#         else:
-#             raise ValueError(f"Unsupported intLevel: {intLevel}")
-#     else:
-#         patch_size = 9
-#         dilation_patch = 1
+def correlate_v1(input1, input2, intLevel, signal=0):
+    if signal == 0:
+        if intLevel == 4:
+            patch_size = 7
+            dilation_patch = 2
+        elif intLevel == 3:
+            patch_size = 9
+            dilation_patch = 2
+        else:
+            raise ValueError(f"Unsupported intLevel: {intLevel}")
+    else:
+        patch_size = 9
+        dilation_patch = 1
 
-#     B, C, H, W = input1.shape
+    B, C, H, W = input1.shape
 
-#     radius = patch_size // 2
-#     pad_size = radius * dilation_patch
+    radius = patch_size // 2
+    pad_size = radius * dilation_patch
 
-#     # 对 input2 进行 padding
-#     input2_pad = F.pad(
-#         input2,
-#         (pad_size, pad_size, pad_size, pad_size),
-#         mode="constant",
-#         value=0
-#     )
+    # 对 input2 进行 padding
+    input2_pad = F.pad(
+        input2,
+        (pad_size, pad_size, pad_size, pad_size),
+        mode="constant",
+        value=0
+    )
 
-#     corr_list = []
+    corr_list = []
 
-#     # 计算不同位移下的特征相关性
-#     for dy in range(patch_size):
-#         for dx in range(patch_size):
-#             offset_y = (dy - radius) * dilation_patch
-#             offset_x = (dx - radius) * dilation_patch
+    # 计算不同位移下的特征相关性
+    for dy in range(patch_size):
+        for dx in range(patch_size):
+            offset_y = (dy - radius) * dilation_patch
+            offset_x = (dx - radius) * dilation_patch
 
-#             shifted = input2_pad[
-#                 :,
-#                 :,
-#                 pad_size + offset_y:pad_size + offset_y + H,
-#                 pad_size + offset_x:pad_size + offset_x + W
-#             ]
+            shifted = input2_pad[
+                :,
+                :,
+                pad_size + offset_y:pad_size + offset_y + H,
+                pad_size + offset_x:pad_size + offset_x + W
+            ]
 
-#             corr = (input1 * shifted).sum(dim=1) / C
-#             corr_list.append(corr)
+            corr = (input1 * shifted).sum(dim=1) / C
+            corr_list.append(corr)
 
-#     # [B, patch_size * patch_size, H, W]
-#     out_corr = torch.stack(corr_list, dim=1)
+    # [B, patch_size * patch_size, H, W]
+    out_corr = torch.stack(corr_list, dim=1)
 
-#     # 保留原始实现的 LeakyReLU
-#     out_corr = F.leaky_relu(out_corr, negative_slope=0.1)
+    # 保留原始实现的 LeakyReLU
+    out_corr = F.leaky_relu(out_corr, negative_slope=0.1)
 
-#     return out_corr
-# v2
-def correlate(input1, input2, intLevel, signal=0):
-
+    return out_corr
+def correlate_v2(input1, input2, intLevel, signal=0):
+    '''
+    不使用pad
+    '''
     if signal == 0:
         if intLevel == 4:
             patch_size = 7
@@ -180,6 +191,17 @@ def correlate(input1, input2, intLevel, signal=0):
 
     return F.leaky_relu(out_corr, negative_slope=0.1)
 
+def correlate(input1, input2, intLevel, signal=0):
+    """根据 args_backend 选择 correlate 实现。"""
+    if args_backend not in {"trt104", "trt85", "trt84", "cann"}:
+        raise ValueError(
+            f"Unsupported args_backend: {args_backend}. "
+            "Choose from {'trt104', 'trt85', 'trt84', 'cann'}."
+        )
+
+    if args_backend in {"trt104", "trt85", "cann"}:
+        return correlate_v1(input1, input2, intLevel, signal)
+    return correlate_v2(input1, input2, intLevel, signal)
 ###########
 
 torch.set_grad_enabled(False) # make sure to not compute gradients for computational performance
@@ -217,8 +239,7 @@ def backwarp(tenInput, tenFlow):
 导出onnx
 '''
 backwarp_tenGrid = {}
-# v1
-def backwarp(tenInput, tenFlow):
+def backwarp_v1(tenInput, tenFlow):
     # 缓存 key 同时包含 shape、device 和 dtype
     key = (str(tenFlow.shape),str(tenFlow.device),str(tenFlow.dtype))
 
@@ -261,6 +282,15 @@ def backwarp(tenInput, tenFlow):
         padding_mode='zeros',
         align_corners=False
     )
+def backwarp(tenInput, tenFlow):
+    """根据 args_backend 选择 correlate 实现。"""
+    if args_backend not in {"trt104", "trt85", "trt84", "cann"}:
+        raise ValueError(
+            f"Unsupported args_backend: {args_backend}. "
+            "Choose from {'trt104', 'trt85', 'trt84', 'cann'}."
+        )
+
+    return backwarp_v1(tenInput, tenFlow)
 ##########################################################
 
 class LiteFlowNet3(torch.nn.Module):
@@ -663,7 +693,7 @@ class OnnxWrapper(torch.nn.Module):
         return flow
 
 
-def export_onnx(onnx_path='./liteflownet3.onnx',opset=17):
+def export_onnx(onnx_path=f'./liteflownet3_{args_backend}.onnx',opset=17):
     # 清空 backwarp 网格缓存
     backwarp_tenGrid.clear()
 
